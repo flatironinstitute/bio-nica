@@ -41,7 +41,7 @@ def handle_args():
 	parser.add_argument("--x_dim",	type=int, default=3, help="Mixed Stimuli Dimension, must satisfy x_dim >= s_dim")
 	parser.add_argument("--trials",	type=int, default=1, help="What does this do?")
 	parser.add_argument("--epochs",	type=int, default=1, help="What does this do?")
-	parser.add_argument("--image_data",	type=bool, action='store_true', help="What does this do?")
+	parser.add_argument("--image_data", action='store_true', help="What does this do?")
 
 	parser.add_argument("--algorithm", required=True, choices=['bio_nica', '2nsm', 'nn_pca', 'fast_ica'], help="Which algorithm to run. Valid: bio_nica, 2nsm, nn_pca, fast_ica")
 
