@@ -25,13 +25,13 @@ def main():
 	cfg = handle_args()
 	y_dim = s_dim
 	A, S, X = load_data(cfg)
-	if np.algorithm == 'bio_nica':
+	if cfg.algorithm == 'bio_nica':
 		dispatch_bio_nica(cfg, y_dim, A, S, X)
-	elif np.algorithm == '2nsm':
+	elif cfg.algorithm == '2nsm':
 		dispatch_nsm(cfg, y_dim, A, S, X)
-	elif np.algorithm == 'nn_pca':
+	elif cfg.algorithm == 'nn_pca':
 		dispatch_nnpca(cfg, y_dim, A, S, X)
-	elif np.algorithm == 'fast_ica':
+	elif cfg.algorithm == 'fast_ica':
 		dispatch_fastica(cfg, y_dim, A, S, X)
 
 
