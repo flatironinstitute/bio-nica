@@ -5,6 +5,7 @@
 ##############################
 # Imports
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.optimize import linear_sum_assignment
 
 ##############################
@@ -104,3 +105,21 @@ def permutation_error(S, Y):
         err[t] = err[t-1] + (error_t - err[t-1])/t
     
     return err
+
+def add_fill_lines(axis, t, err, ci_pct=.9, plot_kwargs=None, ci_kwargs=None):
+    """
+    Parameters:
+    ====================
+    err -- The data matrix of errors over multiple trials
+    """
+        
+    log_err = np.log(err+10**-6)
+    mu = log_err.mean(axis=0)
+    sigma = np.std(log_err,axis=0)
+    ci_lo, ci_hi = mu - sigma, mu + sigma
+    plot_kwargs = plot_kwargs or {}
+    ci_kwargs = ci_kwargs or {}
+    plot = axis.plot(t, np.exp(mu), **plot_kwargs)
+    fill = axis.fill_between(t, np.exp(ci_lo), np.exp(ci_hi), alpha=.1, **ci_kwargs)
+    
+    return plot, fill

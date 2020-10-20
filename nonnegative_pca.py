@@ -35,13 +35,10 @@ class nonnegative_pca:
             
         if dataset=='3-dim_synthetic' and s_dim==3 and x_dim ==3:
             eta0 = 0.01
-            decay = 0.00001
+            decay = 0.001
         elif dataset=='10-dim_synthetic' and s_dim==10 and x_dim==10:
             eta0 = 0.01
             decay = 0.00001
-        elif dataset=='image' and s_dim==3 and x_dim==6:
-            eta0 = 0.01
-            decay = 0.0001
 
         self.t = 0
         self.eta0 = eta0
@@ -53,9 +50,9 @@ class nonnegative_pca:
     def fit_next(self, x):
         
         assert x.shape == (self.x_dim,)
-
-        t, s_dim, W = self.t, self.s_dim, self.W
         
+        t, s_dim, W = self.t, self.s_dim, self.W
+
         # project inputs
         
         y = np.maximum(W@x,0)
@@ -68,18 +65,16 @@ class nonnegative_pca:
 
         self.W = W
         
-        self.t += 1
+        self.t = t+1
         
         return y
     
     def flip_weights(self,j):
         
-        assert 0<=j<self.s_dim
-        
         t, W = self.t, self.W
-        
+                
         W[j,:] = -W[j,:]
-        
+                
 #         print(f'After iteration {t}, flipped the weights of row {j}')
        
         self.W = W
