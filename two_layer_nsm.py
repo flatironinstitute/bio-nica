@@ -9,20 +9,6 @@ import numpy as np
 
 ##############################
 
-
-def eta(t):
-    """
-    Parameters:
-    ====================
-    t -- time at which learning rate is to be evaluated
-    Output:
-    ====================
-    step -- learning rate at time t
-    """
-
-    return 1.0 / (t + 100)
-
-
 class two_layer_nsm:
     """
     Parameters:
@@ -40,7 +26,7 @@ class two_layer_nsm:
     fit_next()
     """
 
-    def __init__(self, s_dim, x_dim, Whx0=None, Wgh0=None, Wyh0=None, Wyy0=None, learning_rate=eta):
+    def __init__(self, s_dim, x_dim, dataset=None, Whx0=None, Wgh0=None, Wyh0=None, Wyy0=None, a=None, b=None):
 
         if Whx0 is not None:
             assert Whx0.shape == (s_dim, s_dim), "The shape of the initial guess Whx0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
@@ -66,9 +52,21 @@ class two_layer_nsm:
         else:
             Wyy = np.eye(s_dim)
 
-        self.eta = learning_rate
-        self.t = 0
+        # optimal hyperparameters for test datasets
+            
+        if dataset=='3-dim_synthetic' and s_dim==3 and x_dim ==3:
+            a = 10
+            b = 0.8
+        elif dataset=='10-dim_synthetic' and s_dim==10 and x_dim==10:
+            a = 10
+            b = 0.9
+        elif dataset=='image' and s_dim==3 and x_dim==6:
+            a = 10
+            b = 0.9
 
+        self.a = a
+        self.b = b
+        self.t = 0
         self.s_dim = s_dim
         self.x_dim = x_dim
         self.x_bar = np.zeros(x_dim)
@@ -132,7 +130,7 @@ class two_layer_nsm:
         
         y_sq = y**2
         
-        D = np.maximum(10,.9*D + y_sq)
+        D = np.maximum(self.a,self.b*D + y_sq)
 
         Wyh = Wyh + np.linalg.inv(np.diag(D))@(np.outer(y,h) - np.diag(y_sq)@Wyh)
         Wyy = Wyy + np.linalg.inv(np.diag(D))@(np.outer(y,y) - np.diag(y_sq)@Wyy)
@@ -156,6 +154,6 @@ class two_layer_nsm:
         
         Wyh[j,:] = -Wyh[j,:]
         
-        print(f'After iteration {t}, flipped the weights of row {j}')
+#         print(f'After iteration {t}, flipped the weights of row {j}')
        
         self.Wyh = Wyh

@@ -9,21 +9,6 @@ import numpy as np
 
 ##############################
 
-
-def eta(t):
-    """
-    Parameters:
-    ====================
-    t -- time at which learning rate is to be evaluated
-    
-    Output:
-    ====================
-    step -- learning rate at time t
-    """
-
-    return 1.0 / (1000 + .01*t)
-
-
 class nonnegative_pca:
     """
     Parameters:
@@ -38,7 +23,7 @@ class nonnegative_pca:
     fit_next()
     """
 
-    def __init__(self, s_dim, x_dim, W0=None, learning_rate=eta):
+    def __init__(self, s_dim, x_dim, dataset=None, W0=None, eta0=0.1, decay=0.1):
 
         if W0 is not None:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
@@ -46,12 +31,23 @@ class nonnegative_pca:
         else:
             W = np.random.normal(0, 1.0 / np.sqrt(x_dim), size=(s_dim, x_dim))
 
-        self.eta = learning_rate
-        self.t = 0
+        # optimal hyperparameters for test datasets
+            
+        if dataset=='3-dim_synthetic' and s_dim==3 and x_dim ==3:
+            eta0 = 0.01
+            decay = 0.00001
+        elif dataset=='10-dim_synthetic' and s_dim==10 and x_dim==10:
+            eta0 = 0.01
+            decay = 0.00001
+        elif dataset=='image' and s_dim==3 and x_dim==6:
+            eta0 = 0.01
+            decay = 0.0001
 
+        self.t = 0
+        self.eta0 = eta0
+        self.decay = decay
         self.s_dim = s_dim
         self.x_dim = x_dim
-
         self.W = W
 
     def fit_next(self, x):
@@ -66,7 +62,7 @@ class nonnegative_pca:
 
         # synaptic updates
         
-        step = self.eta(t)
+        step = self.eta0/(1+self.decay*t)
 
         W += step*(np.outer(y,x)-np.outer(y,y)@W)
 
@@ -84,6 +80,6 @@ class nonnegative_pca:
         
         W[j,:] = -W[j,:]
         
-        print(f'After iteration {t}, flipped the weights of row {j}')
+#         print(f'After iteration {t}, flipped the weights of row {j}')
        
         self.W = W

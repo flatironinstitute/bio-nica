@@ -9,20 +9,6 @@ from quadprog import solve_qp
 
 ##############################
 
-
-def eta(t):
-    """
-    Parameters:
-    ====================
-    t -- time at which learning rate is to be evaluated
-    Output:
-    ====================
-    step -- learning rate at time t
-    """
-
-    return 1.0 / (t + 100)
-
-
 class bio_nica:
     """
     Parameters:
@@ -39,7 +25,7 @@ class bio_nica:
     fit_next()
     """
 
-    def __init__(self, s_dim, x_dim, M0=None, W0=None, learning_rate=eta, tau=0.5):
+    def __init__(self, s_dim, x_dim, dataset=None, M0=None, W0=None, eta0=0.01, decay=0.01, tau=0.1):
 
         if M0 is not None:
             assert M0.shape == (s_dim, s_dim), "The shape of the initial guess M must be (s_dim,s_dim)=(%d,%d)" % (s_dim, s_dim)
@@ -52,13 +38,28 @@ class bio_nica:
             W = W0
         else:
             W = np.random.normal(0, 1.0 / np.sqrt(x_dim), size=(s_dim, x_dim))
+            
+        # optimal hyperparameters for test datasets
+            
+        if dataset=='3-dim_synthetic' and s_dim==3 and x_dim ==3:
+            eta0 = 0.1
+            decay = 0.01
+            tau = 0.8
+        elif dataset=='10-dim_synthetic' and s_dim==10 and x_dim==10:
+            eta0 = 0.001
+            decay = 0.0001
+            tau = .03
+        elif dataset=='image' and s_dim==3 and x_dim==6:
+            eta0 = 0.001
+            decay = 0.000001
+            tau = .05
 
-        self.eta = learning_rate
         self.t = 0
-
+        self.eta0 = eta0
+        self.decay = decay
+        self.tau = tau
         self.s_dim = s_dim
         self.x_dim = x_dim
-        self.tau = tau
         self.x_bar = np.zeros(x_dim)
         self.c_bar = np.zeros(s_dim)
         self.M = M
@@ -88,16 +89,10 @@ class bio_nica:
 
         # synaptic updates
         
-#         step = self.eta(t)
+        step = self.eta0/(1+self.decay*t)
 
-#         W += 2*step*(np.outer(y,x) - np.outer(c_hat,x_hat))
-#         M += (step/tau)*(np.outer(y,y) - M)
-
-        alpha = 1/(100+.01*t)
-        beta = .01
-        
-        W += 2*alpha*(np.outer(y,x) - np.outer(c - c_bar,x - x_bar))
-        M += beta*(np.outer(y,y) - M)
+        W += 2*step*(np.outer(y,x) - np.outer(c-c_bar,x-x_bar))
+        M += (step/tau)*(np.outer(y,y) - M)
 
         self.M = M
         self.W = W
@@ -114,6 +109,6 @@ class bio_nica:
         
         W[j,:] = -W[j,:]
         
-        print(f'After iteration {t}, flipped the weights of row {j}')
+#         print(f'After iteration {t}, flipped the weights of row {j}')
        
         self.W = W

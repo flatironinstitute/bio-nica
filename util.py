@@ -5,15 +5,70 @@
 ##############################
 # Imports
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 
 ##############################
+
+def synthetic_data(s_dim, x_dim, samples):
+    """
+    Parameters:
+    ====================
+    s_dim   -- The dimension of sources
+    x_dim   -- The dimension of mixtures
+    samples -- The number of samples
+
+    Output:
+    ====================
+    S       -- The source data matrix
+    X       -- The mixture data matrix
+    """
+    
+    print(f'Generating {s_dim}-dimensional sparse uniform source data...')
+
+    # Generate sparse random samples
+
+    U = np.random.uniform(0,np.sqrt(48/5),(s_dim,samples)) # independent non-negative uniform source RVs with variance 1
+    B = np.random.binomial(1, .5, (s_dim,samples)) # binomial RVs to sparsify the source
+    S = U*B # sources
+
+    print(f'Generating {x_dim}-dimensional mixtures...')
+    
+    # Mixing matrices
+    
+    if s_dim==3 and x_dim==3:
+        A = [[0.0315180, .38793, 0.061132], [-0.78502, 0.165610, 0.124580], [.347820, 0.272950, 0.67793]]
+    elif s_dim==10 and x_dim==10:
+        A = [[-1.610, .110, .111, .26, -0.01, -1.66, 0.45, 0.48, 0.93, -0.57], 
+             [-0.95, -0.05, 0.35, -0.68, 1.14, 0.71, -0.38, -0.20, -0.20, 2.02], 
+             [0.54, 2.16, 0.06, -0.08, 0.36, -0.16, -0.22, -1.82, -0.22, 0.40], 
+             [-0.98, -0.12, -1.45, -0.58, -0.56, 0.34, -0.51, 0.19, -0.44, -0.15],
+             [-0.87, 0.54, 0.68, 1.28, 0.63, 1.04, -0.81, 1.08, -0.65, -0.30], 
+             [0.91, 0.84, 0.45, -0.31, -0.14, -1.46, -0.18, 0.48, -0.41, 0.75],
+             [-1.20, 1.29, 0.39, -1.40, 0.84, -2.32, -1.54, -0.26, -1.99, -0.34],
+             [1.34, 0.75, -1.29, -0.63, -1.63, -1.05, 0.07, 0.09, -0.67, 0.28], 
+             [-0.32, -0.38, -0.11, 1.18, -0.41, 0.58, -0.92, 1.09, 0.41, 1.29],
+             [2.04, 2.00, -0.50, 0.78, -0.65, -0.93, 0.42, -1.69, -1.16, -0.68]]
+    else:
+        A = np.random.randn(x_dim,s_dim) # random mixing matrix
+
+    # Generate mixtures
+    
+    X = A@S
+    
+    np.save(f'datasets/{x_dim}-dim_synthetic/sources.npy', S)
+    np.save(f'datasets/{x_dim}-dim_synthetic/mixtures.npy', X)
+    
+    
+# def image_data(s_dim):
+
 
 def permutation_error(S, Y):
     """
     Parameters:
     ====================
-    S -- The data matrix of sources
-    Y -- The data matrix of recovered sources
+    S   -- The data matrix of sources
+    Y   -- The data matrix of recovered sources
+    
     Output:
     ====================
     err -- the (relative) Frobenius norm error
@@ -26,177 +81,26 @@ def permutation_error(S, Y):
     
     err = np.zeros(iters)
     
-    perm = np.round(np.corrcoef(S,Y))[:s_dim,s_dim:]
-                
-    assert (perm@perm.T==np.eye(s_dim)).all(), "The recovered sources are not a clear permutation of the sources"
+    # Determine the optimal permutation at the final time point.
+    # We solve the linear assignment problem using the linear_sum_assignment package
     
+    # Calculate cost matrix:
+    
+    C = np.zeros((s_dim,s_dim))
+    
+    for i in range(s_dim):
+        for j in range(s_dim):
+            for t in range(iters):
+                C[i,j] += (S[i,t] - Y[j,t])**2
+    
+    # Find the optimal assignment for the cost matrix C
+    
+    row_ind, col_ind = linear_sum_assignment(C)
+        
     for t in range(1,iters):
 
-        error_t = (np.linalg.norm(S[:,t] - perm@Y[:,t])**2)/s_dim
+        diff_t = (S[row_ind[:],t] - Y[col_ind[:],t])**2
+        error_t = diff_t.sum()/s_dim
         err[t] = err[t-1] + (error_t - err[t-1])/t
     
     return err
-
-
-# def load_dataset(dataset_name, return_U=True, K=None):
-#     '''
-#     Parameters
-#     ----------
-#     dataset_name: str
-#         name of dataset
-#     return_U: bool
-#         whether to also compute the eigenvetor matrix
-#     Returns
-#     -------
-#         X: ndarray
-#             generated samples
-#         U: ndarray
-#             ground truth eigenvectors
-#         lam: ndarray
-#             ground truth eigenvalues
-#     '''
-
-#     ld = loadmat(dataset_name)
-#     fea = ld['fea']
-#     X = fea.astype(np.float)
-#     X -= X.mean(0)[None, :]
-
-#     if return_U:
-#         if K is None:
-#             K = X.shape[-1]
-
-#         pca = PCA(n_components=K, svd_solver='arpack')
-#         pca.fit(X)
-#         U = pca.components_.T
-#         lam = pca.explained_variance_
-#         X = X.T
-#     else:
-#         U = 0
-#         lam = 0
-#         X = X.T
-
-#     return X, U, lam
-
-
-# def generate_samples(K=None, N=None, D=None, method='spiked_covariance', options=None, scale_data=True,
-#                      sample_with_replacement=False, shuffle=False, return_scaling=False):
-#     '''
-    
-#     Parameters
-#     ----------
-#     D: int or None
-#         number of features
-    
-#     K: int
-#         number of components
-    
-#     N: int or 'auto'
-#         number of samples, if 'auto' it will return all the samples from real data datasets
-#     method: str
-#         so far 'spiked_covariance' or 'real_data'
-    
-#     options: dict
-#         specific of each method (see code)
-#     scale_data: bool
-#         scaling data so that average sample norm is one
-#     shuffle: bool
-#         whether to shuffle the data or not
-#     return_scaling: bool
-#         true if we want to get two additional output arguments, the centering and scaling
-#     Returns
-#     -------
-#         X: ndarray
-#             generated samples
-#         U: ndarray
-#             ground truth eigenvectors
-#         sigma2: ndarray
-#             ground truth eigenvalues
-#         avg: ndarray
-#             mean of X (only sometimes returned)
-#         scale_factor: float
-#             the amount by which the data was scaled (only sometimes returned)
-#     '''
-#     # Generate synthetic data samples  from a specified model or load real datasets
-#     # here making sure that we use the right n when including n_test frames
-
-#     if method == 'spiked_covariance':
-#         if N == 'auto':
-#             raise ValueError('N cannot be "auto" for spiked_covariance model')
-
-#         if options is None:
-#             options = {
-#                 'lambda_K': 5e-1,
-#                 'normalize': True,
-#                 'rho': 1e-2 / 5,
-#                 'return_U': True
-#             }
-#         return_U = options['return_U']
-
-#         if N is None or D is None:
-#             raise Exception('Spiked covariance requires parameters N and D')
-
-#         rho = options['rho']
-#         normalize = options['normalize']
-#         if normalize:
-#             lambda_K = options['lambda_K']
-#             sigma = np.sqrt(np.linspace(1, lambda_K, K))
-#         else:
-#             slope = options['slope']
-#             gap = options['gap']
-#             sigma = np.sqrt(gap + slope * np.arange(K - 1, -1, -1))
-
-#         U, _ = np.linalg.qr(np.random.normal(0, 1, (D, K)))
-
-#         w = np.random.normal(0, 1, (K, N))
-#         X = np.sqrt(rho) * np.random.normal(0, 1, (D, N))
-
-#         X += U.dot((w.T * sigma).T)
-#         sigma2 = (sigma ** 2)[:, np.newaxis]
-
-#     elif method == 'real_data':
-#         if options is None:
-#             options = {
-#                 'filename': './datasets/MNIST.mat',
-#                 'return_U': True
-#             }
-#         return_U = options['return_U']
-#         filename = options['filename']
-
-#         X, U, sigma2 = load_dataset(filename, return_U=return_U, K=K)
-
-#         if N != 'auto':
-#             if N > X.shape[-1]:
-#                 if sample_with_replacement:
-#                     print('** Warning: You are sampling real data with replacement')
-#                 else:
-#                     raise Exception("You are sampling real data with replacement "
-#                                     "but sample_with_replacement flag is set to False")
-
-#             X = X[:, np.arange(N) % X.shape[-1]]
-
-#     else:
-#         assert 0, 'Specified method for data generation is not yet implemented!'
-
-#     # center data
-#     avg = X.mean(1)[:, None]
-#     X -= avg
-#     if scale_data:
-#         scale_factor = get_scale_data_factor(X)
-#         X, U, sigma2 = X * scale_factor, U, sigma2 * (scale_factor ** 2)
-#     else:
-#         scale_factor = 1
-
-#     if shuffle:
-#         print('Shuffling data!')
-#         X = X[:,np.random.permutation(X.shape[-1])]
-
-#     if return_scaling:
-#         if return_U:
-#             return X, U, sigma2, avg, scale_factor
-#         else:
-#             return X, avg, scale_factor
-#     else:
-#         if return_U:
-#             return X, U, sigma2
-#         else:
-#             return X
