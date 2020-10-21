@@ -33,7 +33,7 @@ samples = S.shape[1]
 # Parameters
 #---------------------------
 
-trials = 5
+trials = 10
 
 bionica_err = np.zeros((trials,samples))
 nsm_err = np.zeros((trials,samples))
@@ -53,29 +53,29 @@ for i_trial in range(trials):
     # Bio-NICA
     #---------------------------
 
-#     print('Testing Bio-NICA...')
+    print('Testing Bio-NICA...')
 
-#     bionica = bio_nica(s_dim, x_dim, dataset)
-#     bionica_Y = np.zeros((s_dim,samples))
+    bionica = bio_nica(s_dim, x_dim, dataset)
+    bionica_Y = np.zeros((s_dim,samples))
 
-#     start_time = time.time()
+    start_time = time.time()
 
-#     for i_sample in range(samples):
-#         x = X[:,i_sample]
-#         bionica_Y[:,i_sample] = bionica.fit_next(x)
+    for i_sample in range(samples):
+        x = X_permuted[:,i_sample]
+        bionica_Y[:,i_sample] = bionica.fit_next(x)
 
-#         if i_sample<=100:
-#             for j in range(s_dim):
-#                 if sum(bionica_Y[0:i_sample,j])==0:
-#                     bionica.flip_weights(j)
+        if i_sample<=100:
+            for j in range(s_dim):
+                if sum(bionica_Y[0:i_sample,j])==0:
+                    bionica.flip_weights(j)
 
-#     elapsed_time = time.time() - start_time
+    elapsed_time = time.time() - start_time
 
-#     print(f'Elapsed time: {elapsed_time} seconds')
+    print(f'Elapsed time: {elapsed_time} seconds')
 
-#     bionica_err[i_trial,:] = permutation_error(S,bionica_Y)
+    bionica_err[i_trial,:] = permutation_error(S_permuted,bionica_Y)
 
-#     print(f'Final permutation error: {bionica_err[i_trial,-1]}')
+    print(f'Final permutation error: {bionica_err[i_trial,-1]}')
 
     #---------------------------
     # 2-layer NSM
@@ -89,7 +89,7 @@ for i_trial in range(trials):
     start_time = time.time()
 
     for i_sample in range(samples):
-        x = X[:,i_sample]
+        x = X_permuted[:,i_sample]
         nsm_Y[:,i_sample] = nsm.fit_next(x)
 
         if i_sample<=100:
@@ -101,7 +101,7 @@ for i_trial in range(trials):
 
     print(f'Elapsed time: {elapsed_time} seconds')
 
-    nsm_err[i_trial,:] = permutation_error(S,nsm_Y)
+    nsm_err[i_trial,:] = permutation_error(S_permuted,nsm_Y)
 
     print(f'Final permutation error: {nsm_err[i_trial,-1]}')
 
@@ -109,41 +109,51 @@ for i_trial in range(trials):
     # Nonnegative PCA
     #---------------------------
 
-#     print('Testing Nonnegative PCA...')
+    print('Testing Nonnegative PCA...')
 
-#     npca = nonnegative_pca(s_dim, x_dim, dataset)
-#     npca_Y = np.zeros((s_dim,samples))
+    npca = nonnegative_pca(s_dim, x_dim, dataset)
+    npca_Y = np.zeros((s_dim,samples))
 
-#     start_time = time.time()
+    start_time = time.time()
 
-#     # Noncentered whitening
+    # Noncentered whitening
 
-#     sig, U = np.linalg.eig(np.cov(X_permuted))
+    sig, U = np.linalg.eig(np.cov(X_permuted))
 
-#     X_white = U@np.diag(1./np.sqrt(sig))@U.T@X_permuted
+    X_white = U@np.diag(1./np.sqrt(sig))@U.T@X_permuted
 
-#     for i_sample in range(samples):
-#         x = X_white[:,i_sample]
-#         npca_Y[:,i_sample] = npca.fit_next(x)
+    for i_sample in range(samples):
+        x = X_white[:,i_sample]
+        npca_Y[:,i_sample] = npca.fit_next(x)
 
-#         if (i_sample+1)%100==0 and i_sample<=1000:
-#             for j in range(s_dim):
-#                 if npca_Y[0:i_sample,j].sum()==0:
-#                     npca.flip_weights(j)
+        if (i_sample+1)%100==0 and i_sample<=1000:
+            for j in range(s_dim):
+                if npca_Y[0:i_sample,j].sum()==0:
+                    npca.flip_weights(j)
 
-#     elapsed_time = time.time() - start_time
+    elapsed_time = time.time() - start_time
 
-#     print(f'Elapsed time: {elapsed_time} seconds')
+    print(f'Elapsed time: {elapsed_time} seconds')
 
-#     npca_err[i_trial,:] = permutation_error(S_permuted,npca_Y)
+    npca_err[i_trial,:] = permutation_error(S_permuted,npca_Y)
 
-#     print(f'Final permutation error: {npca_err[i_trial,-1]}')
+    print(f'Final permutation error: {npca_err[i_trial,-1]}')
 
-print('Plotting...')
+#---------------------------
+# Save data
+#---------------------------
+
+print('Saving...')
+
+np.save(f'error/{dataset}/bionica_error.npy', bionica_err)
+np.save(f'error/{dataset}/nsm_error.npy', nsm_err)
+np.save(f'error/{dataset}/npca_error.npy', npca_err)
 
 #---------------------------
 # Comparison plots
 #---------------------------
+
+print('Plotting...')
 
 linewidth = 3
 
@@ -151,23 +161,19 @@ t = list(range(samples))
 
 fig = plt.figure(figsize=(8,8))
 
-# plt.loglog(bionica_err.mean(axis=0), ls='-', lw=linewidth, label='Bio-NICA')
-# plt.loglog(nsm_err.mean(axis=0), ls='-.', lw=linewidth, label='2-layer NSM')
-# plt.loglog(npca_err.mean(axis=0), ls=':', lw=linewidth, label='Nonnegative PCA')
-
 ax = plt.subplot(1, 1, 1)
 
-# add_fill_lines(ax, t, bionica_err, plot_kwargs={'ls': '-', 'lw': linewidth, 'label': 'Bio-NICA'})
+add_fill_lines(ax, t, bionica_err, plot_kwargs={'ls': '-', 'lw': linewidth, 'label': 'Bio-NICA'})
 add_fill_lines(ax, t, nsm_err, plot_kwargs={'ls': '-.', 'lw': linewidth, 'label': '2-layer NSM'})
-# add_fill_lines(ax, t, npca_err, plot_kwargs={'ls': ':', 'lw': linewidth, 'label': 'Nonnegative PCA'})
+add_fill_lines(ax, t, npca_err, plot_kwargs={'ls': ':', 'lw': linewidth, 'label': 'Nonnegative PCA'})
 
 ax.loglog()
 
+plt.title(f"{s_dim}-dimensional source data")
 plt.grid()
 plt.legend(loc = 'lower left')
 plt.xlabel('Sample #')
 plt.ylabel('Permutation error')
-plt.xlim((100,samples))
-# plt.ylim((10**-3,10))
+plt.xlim((10,samples))
 
 plt.show()

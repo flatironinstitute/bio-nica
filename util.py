@@ -34,34 +34,65 @@ def synthetic_data(s_dim, x_dim, samples):
 
     print(f'Generating {x_dim}-dimensional mixtures...')
     
-    # Mixing matrices
-    
-    if s_dim==3 and x_dim==3:
-        A = [[0.0315180, .38793, 0.061132], [-0.78502, 0.165610, 0.124580], [.347820, 0.272950, 0.67793]]
-    elif s_dim==10 and x_dim==10:
-        A = [[-1.610, .110, .111, .26, -0.01, -1.66, 0.45, 0.48, 0.93, -0.57], 
-             [-0.95, -0.05, 0.35, -0.68, 1.14, 0.71, -0.38, -0.20, -0.20, 2.02], 
-             [0.54, 2.16, 0.06, -0.08, 0.36, -0.16, -0.22, -1.82, -0.22, 0.40], 
-             [-0.98, -0.12, -1.45, -0.58, -0.56, 0.34, -0.51, 0.19, -0.44, -0.15],
-             [-0.87, 0.54, 0.68, 1.28, 0.63, 1.04, -0.81, 1.08, -0.65, -0.30], 
-             [0.91, 0.84, 0.45, -0.31, -0.14, -1.46, -0.18, 0.48, -0.41, 0.75],
-             [-1.20, 1.29, 0.39, -1.40, 0.84, -2.32, -1.54, -0.26, -1.99, -0.34],
-             [1.34, 0.75, -1.29, -0.63, -1.63, -1.05, 0.07, 0.09, -0.67, 0.28], 
-             [-0.32, -0.38, -0.11, 1.18, -0.41, 0.58, -0.92, 1.09, 0.41, 1.29],
-             [2.04, 2.00, -0.50, 0.78, -0.65, -0.93, 0.42, -1.69, -1.16, -0.68]]
-    else:
-        A = np.random.randn(x_dim,s_dim) # random mixing matrix
+    A = np.random.randn(x_dim,s_dim) # random mixing matrix
 
     # Generate mixtures
     
     X = A@S
     
-    np.save(f'datasets/{x_dim}-dim_synthetic/sources.npy', S)
-    np.save(f'datasets/{x_dim}-dim_synthetic/mixtures.npy', X)
+    np.save(f'datasets/{s_dim}-dim_synthetic/sources.npy', S)
+    np.save(f'datasets/{s_dim}-dim_synthetic/mixtures.npy', X)
     
-    
-# def image_data(s_dim):
+def image_data(s_dim, x_dim):
+    """
+    Parameters:
+    ====================
+    s_dim   -- The dimension of sources
+    x_dim   -- The dimension of mixtures
 
+    Output:
+    ====================
+    S       -- The source data matrix
+    X       -- The mixture data matrix
+    """
+    
+    print(f'Generating {s_dim}-dimensional image source data...')
+
+    # Generate image sources
+    
+    image_numbers = [5, 6, 11]; winsize=252 # 3 pre-specified image patches
+    posx = [220, 250, 200]
+    posy = [1, 1, 1]
+
+    S = np.zeros((s_dim, winsize**2))
+
+    plt.figure(figsize=(15,10))
+
+    for i in range(s_dim):
+        image = imageio.imread(f"images/{image_numbers[i]}.tiff")
+        window = image[posy[i]:posy[i] + winsize, posx[i]:posx[i] + winsize]
+        plt.subplot(s_dim, 1, i+1)
+        plt.imshow(window, cmap="gray")
+        window = window.reshape(1,-1)
+        window = window - window.min(axis=1)
+        window_var = np.cov(window)
+        window = window*(window_var**-.5)
+        S[i,:] = window
+
+    plt.show()
+
+    S = np.array(S)
+
+    print(f'Generating {x_dim}-dimensional mixtures...')
+    
+    A = np.random.randn(x_dim,s_dim) # random mixing matrix
+
+    # Generate mixtures
+    
+    X = A@S
+    
+    np.save(f'datasets/image/sources.npy', S)
+    np.save(f'datasets/image/mixtures.npy', X)
 
 def permutation_error(S, Y):
     """
@@ -113,7 +144,7 @@ def add_fill_lines(axis, t, err, ci_pct=.9, plot_kwargs=None, ci_kwargs=None):
     err -- The data matrix of errors over multiple trials
     """
         
-    log_err = np.log(err+10**-6)
+    log_err = np.log(err)
     mu = log_err.mean(axis=0)
     sigma = np.std(log_err,axis=0)
     ci_lo, ci_hi = mu - sigma, mu + sigma

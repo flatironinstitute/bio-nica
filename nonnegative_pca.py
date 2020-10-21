@@ -29,15 +29,18 @@ class nonnegative_pca:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             W = W0
         else:
-            W = np.random.normal(0, 1.0 / np.sqrt(x_dim), size=(s_dim, x_dim))
+            W = np.random.randn(s_dim,x_dim)
+            for i in range(s_dim):
+                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
+
 
         # optimal hyperparameters for test datasets
             
         if dataset=='3-dim_synthetic' and s_dim==3 and x_dim ==3:
-            eta0 = 0.01
-            decay = 0.001
+            eta0 = 0.001
+            decay = 0.00001
         elif dataset=='10-dim_synthetic' and s_dim==10 and x_dim==10:
-            eta0 = 0.01
+            eta0 = 0.001
             decay = 0.00001
 
         self.t = 0

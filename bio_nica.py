@@ -1,6 +1,7 @@
 # Title: bio_nica.py
 # Description: Implementation of Bio-NICA, a single layer network for Nonnegative Independent Component Analysis.
 # Author: David Lipshutz (dlipshutz@flatironinstitute.org)
+# Reference: D. Lipshutz and D.B. Chklovskii "Bio-NICA: A biologically inspired single-layer network for Nonnegative Independent Component Analysis" (2020)
 
 ##############################
 # Imports
@@ -37,7 +38,9 @@ class bio_nica:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             W = W0
         else:
-            W = np.random.normal(0, 1.0 / np.sqrt(x_dim), size=(s_dim, x_dim))
+            W = np.random.randn(s_dim,x_dim)
+            for i in range(s_dim):
+                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
             
         # optimal hyperparameters for test datasets
             
@@ -52,7 +55,7 @@ class bio_nica:
         elif dataset=='image' and s_dim==3 and x_dim==6:
             eta0 = 0.001
             decay = 0.000001
-            tau = .05
+            tau = .1
 
         self.t = 0
         self.eta0 = eta0
@@ -82,7 +85,7 @@ class bio_nica:
         # update running means
 
         x_bar += (x - x_bar)/(t+1) 
-        c_bar += (c - c_bar)/(t+1)
+        c_bar += (c - c_bar)/100
         
         self.x_bar = x_bar
         self.c_bar = c_bar
@@ -93,6 +96,12 @@ class bio_nica:
 
         W += 2*step*(np.outer(y,x) - np.outer(c-c_bar,x-x_bar))
         M += (step/tau)*(np.outer(y,y) - M)
+        
+        # check to see if M is close to degenerate
+        
+        if np.linalg.det(M)<10**-4:
+            print('M close to degenerate')
+            M += .1*np.eye(s_dim)
 
         self.M = M
         self.W = W

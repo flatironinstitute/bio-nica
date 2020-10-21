@@ -1,11 +1,12 @@
 # Title: two_layer_nsm.py
 # Description: Implementation of a 2-layer network for Nonnegative Independent Component Analysis
 # Author: David Lipshutz (dlipshutz@flatironinstitute.org)
-# Reference: C. Pehlevan and D.B. Chklovskii "Blind nonnegative source separation using biological neural networks" (2017)
+# Reference: The algorithm is similar to the algorithm derived in C. Pehlevan and D.B. Chklovskii "Blind nonnegative source separation using biological neural networks" (2017)
 
 ##############################
 # Imports
 import numpy as np
+from quadprog import solve_qp
 
 ##############################
 
@@ -26,13 +27,15 @@ class two_layer_nsm:
     fit_next()
     """
 
-    def __init__(self, s_dim, x_dim, dataset=None, Whx0=None, Wgh0=None, Wyh0=None, Wyy0=None, a=10, b=0.9):
+    def __init__(self, s_dim, x_dim, dataset=None, Whx0=None, Wgh0=None, Wyh0=None, Wyy0=None, eta0=0.1, decay=0.001):
 
         if Whx0 is not None:
             assert Whx0.shape == (s_dim, s_dim), "The shape of the initial guess Whx0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             Whx = Whx0
         else:
-            Whx = np.random.normal(0, 1.0 / np.sqrt(x_dim), size=(s_dim, x_dim))
+            Whx = np.random.randn(s_dim,x_dim)
+            for i in range(s_dim):
+                Whx[i,:] = Whx[i,:]/np.linalg.norm(Whx[i,:])
 
         if Wgh0 is not None:
             assert Wgh0.shape == (s_dim, s_dim), "The shape of the initial guess Wgh0 must be (s_dim,s_dim)=(%d,%d)" % (s_dim, s_dim)
@@ -44,25 +47,25 @@ class two_layer_nsm:
             assert Wyh0.shape == (s_dim, s_dim), "The shape of the initial guess Whx0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, s_dim)
             Wyh = Wyh0
         else:
-            Wyh = np.random.normal(0, 1.0 / np.sqrt(x_dim), size=(s_dim, s_dim))
+            Wyh = np.random.randn(s_dim,s_dim)
+            for i in range(s_dim):
+                Wyh[i,:] = Wyh[i,:]/np.linalg.norm(Wyh[i,:])
 
         if Wyy0 is not None:
             assert Wyy0.shape == (s_dim, s_dim), "The shape of the initial guess Wgh0 must be (s_dim,s_dim)=(%d,%d)" % (s_dim, s_dim)
             Wyy = Wyy0
         else:
-            Wyy = np.zeros((s_dim,s_dim))
+            Wyy = np.eye(s_dim)
 
-        # optimal hyperparameters for test datasets
-            
         if dataset=='3-dim_synthetic' and s_dim==3 and x_dim ==3:
-            a = 10
-            b = 0.8
+            eta0 = 0.01
+            decay = 0.00001
         elif dataset=='10-dim_synthetic' and s_dim==10 and x_dim==10:
-            a = 10
-            b = 0.9
+            eta0 = 0.01
+            decay = 0.00001
 
-        self.a = a
-        self.b = b
+        self.eta0 = eta0
+        self.decay = decay
         self.t = 0
         self.s_dim = s_dim
         self.x_dim = x_dim
@@ -73,31 +76,10 @@ class two_layer_nsm:
         self.Wgh = Wgh
         self.Wyh = Wyh
         self.Wyy = Wyy
-        self.D = np.zeros(s_dim)
     
-    def neural(self, c, Wyy, max_steps=100, tolerance=10**-5):
-        
-        s_dim = self.s_dim
-        
-        y = np.zeros(s_dim)
-        steps = 0
-        
-        while steps<max_steps and error>tolerance:
-            
-            y_old = y
-            
-            for j in range(s_dim):
-                y[j] = max(c[j] - Wyy[j,:]@y_old, 0.0)
-            
-            error = np.linalg.norm(y - y_old)/np.linalg.norm(y_old+0.001)
-            
-            steps += 1
-        
-        return y
-
     def fit_next(self, x):
         
-        t, s_dim, x_bar, h_bar, g_bar, Whx, Wgh, Wyh, Wyy, D  = self.t, self.s_dim, self.x_bar, self.h_bar, self.g_bar, self.Whx, self.Wgh, self.Wyh, self.Wyy, self.D
+        t, s_dim, x_bar, h_bar, g_bar, Whx, Wgh, Wyh, Wyy  = self.t, self.s_dim, self.x_bar, self.h_bar, self.g_bar, self.Whx, self.Wgh, self.Wyh, self.Wyy
         
         # whitening layer
         
@@ -128,28 +110,15 @@ class two_layer_nsm:
         
         c = Wyh@h
         
-        y = neural(c, Wyy)
-            
-        # synaptic updates
+        y = solve_qp(Wyy, c, np.eye(s_dim), np.zeros(s_dim))[0]
         
-        y_sq = y**2
-        
-        D = np.maximum(self.a,self.b*D + y_sq)
+        step = self.eta0/(1+self.decay*t)
 
-        Wyh = Wyh + np.linalg.inv(np.diag(D))@(np.outer(y,h) - np.diag(y_sq)@Wyh)
-        Wyy = Wyy + np.linalg.inv(np.diag(D))@(np.outer(y,y) - np.diag(y_sq)@Wyy)
-        
-        for j in range(s_dim):
-            Wyy[j,j] = 0
-
-#         step = eta0/(1+decay*t)
-
-#         Wyh = Wyh + step*(np.outer(y,h) - Wyh)
-#         Wyy = Wyy + step*(np.outer(y,y) - Wyy)
+        Wyh = Wyh + step*(np.outer(y,h) - Wyh)
+        Wyy = Wyy + step*(np.outer(y,y) - Wyy)
 
         self.Wyh = Wyh
         self.Wyy = Wyy
-        self.D = D
         
         self.t += 1
         
@@ -162,7 +131,5 @@ class two_layer_nsm:
         t, Wyh = self.t, self.Wyh
         
         Wyh[j,:] = -Wyh[j,:]
-        
-#         print(f'After iteration {t}, flipped the weights of row {j}')
-       
+               
         self.Wyh = Wyh
