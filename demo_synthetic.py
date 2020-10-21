@@ -140,16 +140,6 @@ for i_trial in range(trials):
     print(f'Final permutation error: {npca_err[i_trial,-1]}')
 
 #---------------------------
-# Save data
-#---------------------------
-
-print('Saving...')
-
-np.save(f'error/{dataset}/bionica_error.npy', bionica_err)
-np.save(f'error/{dataset}/nsm_error.npy', nsm_err)
-np.save(f'error/{dataset}/npca_error.npy', npca_err)
-
-#---------------------------
 # Comparison plots
 #---------------------------
 
