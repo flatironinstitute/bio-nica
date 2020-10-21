@@ -159,7 +159,7 @@ linewidth = 3
 
 t = list(range(samples))
 
-fig = plt.figure(figsize=(8,8))
+fig = plt.figure(figsize=(5,5))
 
 ax = plt.subplot(1, 1, 1)
 
@@ -176,4 +176,4 @@ plt.xlabel('Sample #')
 plt.ylabel('Permutation error')
 plt.xlim((10,samples))
 
-plt.show()
+plt.savefig(f'plots/{s_dim}-dim_synthetic.png', dpi=300, transparent='true', bbox_inches='tight')
