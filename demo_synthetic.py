@@ -17,8 +17,8 @@ from util import permutation_error, add_fill_lines
 
 # Uncomment the desired dataset
 
-dataset = '3-dim_synthetic'
-# dataset = '10-dim_synthetic'
+# dataset = '3-dim_synthetic'
+dataset = '10-dim_synthetic'
 
 print(f'Loading dataset...')
 
@@ -166,4 +166,5 @@ plt.xlabel('Sample #')
 plt.ylabel('Permutation error')
 plt.xlim((10,samples))
 
-plt.savefig(f'plots/{s_dim}-dim_synthetic.png', dpi=300, transparent='true', bbox_inches='tight')
+plt.show()
+# plt.savefig(f'plots/{s_dim}-dim_synthetic.png', dpi=300, transparent='true', bbox_inches='tight')
