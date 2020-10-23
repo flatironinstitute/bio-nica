@@ -77,7 +77,5 @@ class nonnegative_pca:
         t, W = self.t, self.W
                 
         W[j,:] = -W[j,:]
-                
-#         print(f'After iteration {t}, flipped the weights of row {j}')
-       
+                       
         self.W = W

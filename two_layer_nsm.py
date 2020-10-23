@@ -1,7 +1,7 @@
 # Title: two_layer_nsm.py
 # Description: Implementation of a 2-layer network for Nonnegative Independent Component Analysis
 # Author: David Lipshutz (dlipshutz@flatironinstitute.org)
-# Reference: The algorithm is similar to the algorithm derived in C. Pehlevan and D.B. Chklovskii "Blind nonnegative source separation using biological neural networks" (2017)
+# Reference: The algorithm is similar to the algorithm derived in C. Pehlevan, S. Mohan and D.B. Chklovskii "Blind nonnegative source separation using biological neural networks" (2017)
 
 ##############################
 # Imports
