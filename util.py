@@ -122,8 +122,7 @@ def permutation_error(S, Y):
     
     for i in range(s_dim):
         for j in range(s_dim):
-            for t in range(iters):
-                C[i,j] += (S[i,t] - Y[j,t])**2
+            C[i,j] = ((S[i] - Y[j])**2).sum()
     
     # Find the optimal assignment for the cost matrix C
     
@@ -137,20 +136,29 @@ def permutation_error(S, Y):
     
     return err
 
-def add_fill_lines(axis, t, err, ci_pct=.9, plot_kwargs=None, ci_kwargs=None):
+def add_fill_lines(axis, t, err, plot_kwargs=None, ci_kwargs=None):
     """
     Parameters:
     ====================
-    err -- The data matrix of errors over multiple trials
+    axis        -- Axis variable
+    t           -- Array of time points
+    err         -- The data matrix of errors over multiple trials
+    plot_kwargs -- Arguments for axis.plot()
+    ci_kwargs   -- Arguments for axis.fill_between()
+    
+    Output:
+    ====================
+    plot        -- Function axis.plot()
+    fill        -- Function axis.fill_between() with standard deviation computed on a log scale
     """
         
-    log_err = np.log(err)
-    mu = log_err.mean(axis=0)
+    log_err = np.log(err+10**-5) # add 10**-5 to ensure the logarithm is well defined
+    log_mu = log_err.mean(axis=0)
     sigma = np.std(log_err,axis=0)
-    ci_lo, ci_hi = mu - sigma, mu + sigma
+    ci_lo, ci_hi = log_mu - sigma, log_mu + sigma
     plot_kwargs = plot_kwargs or {}
     ci_kwargs = ci_kwargs or {}
-    plot = axis.plot(t, np.exp(mu), **plot_kwargs)
+    plot = axis.plot(t, np.exp(log_mu), **plot_kwargs)
     fill = axis.fill_between(t, np.exp(ci_lo), np.exp(ci_hi), alpha=.1, **ci_kwargs)
     
     return plot, fill

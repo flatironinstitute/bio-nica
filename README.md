@@ -1,12 +1,5 @@
 # Bio-NICA
-Python files for reproducing experiments in the paper "Bio-NICA: A biologically inspired single-layer network for Nonnegative Independent Component Analysis" by D. Lipshutz and D.B. Chklovskii (2020).
-
-To run:
-
-```shell
-python3 demo_synthetic.py
-python3 demo_image.py
-```
+Jupyter notebooks for reproducing experiments in the paper "Bio-NICA: A biologically inspired single-layer network for Nonnegative Independent Component Analysis" by D. Lipshutz and D.B. Chklovskii (2020).
 
 The images [1] in `images/` are copyrighted (c) Janne Sinkkonen 1994, 1995, 1996, 1997. Copying is permitted only for noncommercial use. They are hosted by the ICA group at the Helsinki, and can be downloaded [here](https://web.archive.org/web/20150412005848/https://research.ics.aalto.fi/ica/data/images/).
 
