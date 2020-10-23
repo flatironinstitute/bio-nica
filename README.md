@@ -1,5 +1,5 @@
 # bio-nica
-Jupyter notebooks for reproducing experiments in [1].
+Jupyter notebooks for reproducing the experiments in [1].
 ## Dependencies
 numpy, scipy, matplotlib, quadprog
 ## Data acknowledgements
