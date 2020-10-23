@@ -117,7 +117,8 @@ class bio_nica:
         M += (step/tau)*(np.outer(y,y) - M)
         
         # check to see if M is close to degenerate
-        
+        # if so, we add .1*identity to ensure stability
+
         if np.linalg.det(M)<10**-4:
             M += .1*np.eye(s_dim)
 
@@ -255,6 +256,7 @@ class two_layer_nsm:
         Wyy = Wyy + step*(np.outer(y,y) - Wyy)
         
         # check to see if Wyy is close to degenerate
+        # if so, we add .1*identity to ensure stability
         
         if np.linalg.det(Wyy)<10**-4:
             Wyy += .1*np.eye(s_dim)
