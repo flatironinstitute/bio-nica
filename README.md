@@ -1,5 +1,5 @@
 # bio-nica
-Jupyter notebooks for reproducing the experiments in [1].
+Jupyter notebooks for reproducing the experiments in [1]: demo_synthetic.ipynb, demo_image.ipynb.
 ## Dependencies
 numpy, scipy, matplotlib, [quadprog](https://pypi.org/project/quadprog/)
 ## Data acknowledgements
