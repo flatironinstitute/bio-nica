@@ -1,7 +1,7 @@
 # Title: nica_algorithms.py
 # Description: Implementation of online algorithms for Nonnegative Independent Component Analysis, including Bio-NICA, 2-layer NSM and Nonnegative PCA.
 # Author: David Lipshutz (dlipshutz@flatironinstitute.org)
-# References: D. Lipshutz and D.B. Chklovskii "Bio-NICA: A biologically inspired single-layer network for Nonnegative Independent Component Analysis" (2020)
+# References: D. Lipshutz, C. Pehlevan and D.B. Chklovskii "Bio-NICA: A biologically inspired single-layer network for Nonnegative Independent Component Analysis" (2020)
 #             C. Pehlevan, S. Mohan and D.B. Chklovskii "Blind nonnegative source separation using biological neural networks" (2017)
 #             M.D. Plumbley and E. Oja "A ‘Nonnegative PCA’ algorithm for independent component analysis" (2004)
 
@@ -139,6 +139,130 @@ class bio_nica:
                
         self.W = W
         
+class bio_nica_indirect:
+    """
+    Parameters:
+    ====================
+    s_dim         -- Dimension of sources
+    x_dim         -- Dimension of mixtures
+    P0            -- Initial guess for the lateral weight matrix P, must be of size s_dim by s_dim
+    W0            -- Initial guess for the forward weight matrix W, must be of size s_dim by x_dim
+    learning_rate -- Learning rate as a function of t
+    tau           -- Learning rate factor for M (multiplier of the W learning rate)
+    
+    Methods:
+    ========
+    fit_next()
+    flip_weights()
+    """
+
+    def __init__(self, s_dim, x_dim, dataset=None, P0=None, W0=None, eta0=None, decay=None, tau=None):
+
+        if P0 is not None:
+            assert P0.shape == (s_dim, s_dim), "The shape of the initial guess M must be (s_dim,s_dim)=(%d,%d)" % (s_dim, s_dim)
+            P = P0
+        else:
+            P = np.eye(s_dim)
+
+        if W0 is not None:
+            assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
+            W = W0
+        else:
+            W = np.random.randn(s_dim,x_dim)
+            for i in range(s_dim):
+                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
+            
+        # optimal hyperparameters for test datasets
+            
+        if dataset=='3-dim_synthetic':
+            if eta0 is None:
+                eta0 = 1e-2
+            if decay is None:
+                decay = 1e-4
+            if tau is None:
+                tau = 0.5
+        elif dataset=='10-dim_synthetic':
+            if eta0 is None:
+                eta0 = 0.001
+            if decay is None:
+                decay = 0.0001
+            if tau is None:
+                tau = 0.5
+        elif dataset=='image':
+            if eta0 is None:
+                eta0 = 0.001
+            if decay is None:
+                decay = 0.000001
+            if tau is None:
+                tau = 0.5
+
+        self.t = 0
+        self.eta0 = eta0
+        self.decay = decay
+        self.tau = tau
+        self.s_dim = s_dim
+        self.x_dim = x_dim
+        self.x_bar = np.zeros(x_dim)
+        self.y_bar = np.zeros(s_dim)
+        self.n_bar = np.zeros(s_dim)
+        self.P = P
+        self.W = W
+
+    def fit_next(self, x):
+        
+        assert x.shape == (self.x_dim,)
+
+        t, s_dim, tau, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.tau, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
+        
+        # project inputs
+        
+        c = W@x
+        
+        # neural dynamics
+
+        y = solve_qp(P@P.T, c, np.eye(s_dim), np.zeros(s_dim))[0]
+        n = P.T@y
+
+        # update running means
+
+        x_bar += (x - x_bar)/(t+1) 
+        y_bar += (y - y_bar)/100
+        n_bar += (n - n_bar)/100
+        
+        self.x_bar = x_bar
+        self.y_bar = y_bar
+        self.n_bar = n_bar
+
+        # synaptic updates
+        
+        step = self.eta0/(1+self.decay*t)
+
+        W += 2*step*(np.outer(y-y_bar,x-x_bar) - W)
+        P += (step/tau)*(np.outer(y-y_bar,n-n_bar) - P)
+        
+        # check to see if P is close to degenerate
+        # if so, we add .1*identity to ensure stability
+
+        if np.linalg.det(P)<10**-4:
+            P += .1*np.eye(s_dim)
+
+        self.P = P
+        self.W = W
+        
+        self.t += 1
+        
+        return y
+    
+    def flip_weights(self,j):
+        
+        assert 0<=j<self.s_dim
+        
+        t, W = self.t, self.W
+        
+        W[j,:] = -W[j,:]
+               
+        self.W = W
+            
 class two_layer_nsm:
     """
     Parameters:
