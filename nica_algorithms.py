@@ -120,6 +120,8 @@ class bio_nica:
         # if so, we add .1*identity to ensure stability
 
         if np.linalg.det(M)<10**-4:
+#             print('M close to degenerate')
+#             W = -W
             M += .1*np.eye(s_dim)
 
         self.M = M
@@ -145,6 +147,7 @@ class bio_nica_indirect:
     ====================
     s_dim         -- Dimension of sources
     x_dim         -- Dimension of mixtures
+    n_dim         -- Dimension of interneurons
     P0            -- Initial guess for the lateral weight matrix P, must be of size s_dim by s_dim
     W0            -- Initial guess for the forward weight matrix W, must be of size s_dim by x_dim
     learning_rate -- Learning rate as a function of t
@@ -156,13 +159,14 @@ class bio_nica_indirect:
     flip_weights()
     """
 
-    def __init__(self, s_dim, x_dim, dataset=None, P0=None, W0=None, eta0=None, decay=None, tau=None):
+    def __init__(self, s_dim, x_dim, n_dim, dataset=None, P0=None, W0=None, eta0=None, decay=None):
 
         if P0 is not None:
-            assert P0.shape == (s_dim, s_dim), "The shape of the initial guess M must be (s_dim,s_dim)=(%d,%d)" % (s_dim, s_dim)
+            assert P0.shape == (s_dim, n_dim), "The shape of the initial guess P0 must be (s_dim,n_dim)=(%d,%d)" % (s_dim, n_dim)
             P = P0
         else:
-            P = np.eye(s_dim)
+            P = np.zeros((s_dim,n_dim))
+            P[:,:s_dim] = np.eye(s_dim)
 
         if W0 is not None:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
@@ -178,33 +182,27 @@ class bio_nica_indirect:
             if eta0 is None:
                 eta0 = 1e-2
             if decay is None:
-                decay = 1e-4
-            if tau is None:
-                tau = 0.5
+                decay = 1e-3
         elif dataset=='10-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.001
+                eta0 = 1e-2
             if decay is None:
-                decay = 0.0001
-            if tau is None:
-                tau = 0.5
+                decay = 1e-3
         elif dataset=='image':
             if eta0 is None:
-                eta0 = 0.001
+                eta0 = 1e-2
             if decay is None:
-                decay = 0.000001
-            if tau is None:
-                tau = 0.5
+                decay = 1e-3
 
         self.t = 0
         self.eta0 = eta0
         self.decay = decay
-        self.tau = tau
         self.s_dim = s_dim
         self.x_dim = x_dim
+        self.n_dim = n_dim
         self.x_bar = np.zeros(x_dim)
         self.y_bar = np.zeros(s_dim)
-        self.n_bar = np.zeros(s_dim)
+        self.n_bar = np.zeros(n_dim)
         self.P = P
         self.W = W
 
@@ -212,7 +210,7 @@ class bio_nica_indirect:
         
         assert x.shape == (self.x_dim,)
 
-        t, s_dim, tau, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.tau, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
+        t, s_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
         
         # project inputs
         
@@ -225,7 +223,7 @@ class bio_nica_indirect:
 
         # update running means
 
-        x_bar += (x - x_bar)/(t+1) 
+        x_bar += (x - x_bar)/(t+1)
         y_bar += (y - y_bar)/100
         n_bar += (n - n_bar)/100
         
@@ -237,14 +235,16 @@ class bio_nica_indirect:
         
         step = self.eta0/(1+self.decay*t)
 
-        W += 2*step*(np.outer(y-y_bar,x-x_bar) - W)
-        P += (step/tau)*(np.outer(y-y_bar,n-n_bar) - P)
+        W += step*(np.outer(y-y_bar,x-x_bar) - W)
+        P += step*(np.outer(y-y_bar,n-n_bar) - P)
         
         # check to see if P is close to degenerate
         # if so, we add .1*identity to ensure stability
 
-        if np.linalg.det(P)<10**-4:
-            P += .1*np.eye(s_dim)
+        if np.linalg.det(P@P.T)<1e-4:
+#             print(f'Iteration {t}: P@P.T close to degenerate')
+            P[:,:s_dim] += .5*np.eye(s_dim)
+            W = -W
 
         self.P = P
         self.W = W
@@ -313,9 +313,9 @@ class two_layer_nsm:
 
         if dataset=='3-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-1
             if decay is None:
-                decay = 0.0000001
+                decay = 1e-7
         elif dataset=='10-dim_synthetic':
             if eta0 is None:
                 eta0 = 0.1
