@@ -12,7 +12,127 @@ from quadprog import solve_qp
 
 ##############################
 
-class bio_nica:
+class bio_nica_indirect:
+    """
+    Parameters:
+    ====================
+    s_dim         -- Dimension of sources
+    x_dim         -- Dimension of mixtures
+    n_dim         -- Dimension of interneurons
+    P0            -- Initial guess for the lateral weight matrix P, must be of size s_dim by s_dim
+    W0            -- Initial guess for the forward weight matrix W, must be of size s_dim by x_dim
+    learning_rate -- Learning rate as a function of t
+    tau           -- Learning rate factor for M (multiplier of the W learning rate)
+    
+    Methods:
+    ========
+    fit_next()
+    flip_weights()
+    """
+
+    def __init__(self, s_dim, x_dim, n_dim, dataset=None, P0=None, W0=None, eta0=None, decay=None):
+
+        if P0 is not None:
+            assert P0.shape == (s_dim, n_dim), "The shape of the initial guess P0 must be (s_dim,n_dim)=(%d,%d)" % (s_dim, n_dim)
+            P = P0
+        else:
+            P = np.zeros((s_dim,n_dim))
+            P[:,:s_dim] = np.eye(s_dim)
+
+        if W0 is not None:
+            assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
+            W = W0
+        else:
+            W = np.random.randn(s_dim,x_dim)
+            for i in range(s_dim):
+                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
+            
+        # optimal hyperparameters for test datasets
+            
+        if dataset=='3-dim_synthetic':
+            if eta0 is None:
+                eta0 = 1e-2
+            if decay is None:
+                decay = 1e-3
+        elif dataset=='10-dim_synthetic':
+            if eta0 is None:
+                eta0 = 1e-2
+            if decay is None:
+                decay = 1e-3
+        elif dataset=='image':
+            if eta0 is None:
+                eta0 = 1e-2
+            if decay is None:
+                decay = 1e-3
+
+        self.t = 0
+        self.eta0 = eta0
+        self.decay = decay
+        self.s_dim = s_dim
+        self.x_dim = x_dim
+        self.n_dim = n_dim
+        self.x_bar = np.zeros(x_dim)
+        self.y_bar = np.zeros(s_dim)
+        self.n_bar = np.zeros(n_dim)
+        self.P = P
+        self.W = W
+
+    def fit_next(self, x):
+        
+        assert x.shape == (self.x_dim,)
+
+        t, s_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
+        
+        # project inputs
+        
+        c = W@x
+        
+        # neural dynamics
+
+        y = solve_qp(P@P.T, c, np.eye(s_dim), np.zeros(s_dim))[0]
+        n = P.T@y
+
+        # update running means
+
+        x_bar += (x - x_bar)/(t+1)
+        y_bar += (y - y_bar)/100
+        n_bar += (n - n_bar)/100
+        
+        self.x_bar = x_bar
+        self.y_bar = y_bar
+        self.n_bar = n_bar
+
+        # synaptic updates
+        
+        step = self.eta0/(1+self.decay*t)
+
+        W += step*(np.outer(y-y_bar,x-x_bar) - W)
+        P += step*(np.outer(y-y_bar,n-n_bar) - P)
+        
+        # check to see if P is close to degenerate
+        # if so, we add .5*identity and flip the feedforward weights to ensure stability
+
+        if np.linalg.det(P@P.T)<1e-4:
+            P[:,:s_dim] += .3*np.eye(s_dim)
+
+        self.P = P
+        self.W = W
+        
+        self.t += 1
+        
+        return y
+    
+    def flip_weights(self,j):
+        
+        assert 0<=j<self.s_dim
+        
+        t, W = self.t, self.W
+        
+        W[j,:] = -W[j,:]
+               
+        self.W = W
+            
+class bio_nica_direct:
     """
     Parameters:
     ====================
@@ -120,8 +240,6 @@ class bio_nica:
         # if so, we add .1*identity to ensure stability
 
         if np.linalg.det(M)<10**-4:
-#             print('M close to degenerate')
-#             W = -W
             M += .1*np.eye(s_dim)
 
         self.M = M
@@ -141,128 +259,6 @@ class bio_nica:
                
         self.W = W
         
-class bio_nica_indirect:
-    """
-    Parameters:
-    ====================
-    s_dim         -- Dimension of sources
-    x_dim         -- Dimension of mixtures
-    n_dim         -- Dimension of interneurons
-    P0            -- Initial guess for the lateral weight matrix P, must be of size s_dim by s_dim
-    W0            -- Initial guess for the forward weight matrix W, must be of size s_dim by x_dim
-    learning_rate -- Learning rate as a function of t
-    tau           -- Learning rate factor for M (multiplier of the W learning rate)
-    
-    Methods:
-    ========
-    fit_next()
-    flip_weights()
-    """
-
-    def __init__(self, s_dim, x_dim, n_dim, dataset=None, P0=None, W0=None, eta0=None, decay=None):
-
-        if P0 is not None:
-            assert P0.shape == (s_dim, n_dim), "The shape of the initial guess P0 must be (s_dim,n_dim)=(%d,%d)" % (s_dim, n_dim)
-            P = P0
-        else:
-            P = np.zeros((s_dim,n_dim))
-            P[:,:s_dim] = np.eye(s_dim)
-
-        if W0 is not None:
-            assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
-            W = W0
-        else:
-            W = np.random.randn(s_dim,x_dim)
-            for i in range(s_dim):
-                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
-            
-        # optimal hyperparameters for test datasets
-            
-        if dataset=='3-dim_synthetic':
-            if eta0 is None:
-                eta0 = 1e-2
-            if decay is None:
-                decay = 1e-3
-        elif dataset=='10-dim_synthetic':
-            if eta0 is None:
-                eta0 = 1e-2
-            if decay is None:
-                decay = 1e-3
-        elif dataset=='image':
-            if eta0 is None:
-                eta0 = 1e-2
-            if decay is None:
-                decay = 1e-3
-
-        self.t = 0
-        self.eta0 = eta0
-        self.decay = decay
-        self.s_dim = s_dim
-        self.x_dim = x_dim
-        self.n_dim = n_dim
-        self.x_bar = np.zeros(x_dim)
-        self.y_bar = np.zeros(s_dim)
-        self.n_bar = np.zeros(n_dim)
-        self.P = P
-        self.W = W
-
-    def fit_next(self, x):
-        
-        assert x.shape == (self.x_dim,)
-
-        t, s_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
-        
-        # project inputs
-        
-        c = W@x
-        
-        # neural dynamics
-
-        y = solve_qp(P@P.T, c, np.eye(s_dim), np.zeros(s_dim))[0]
-        n = P.T@y
-
-        # update running means
-
-        x_bar += (x - x_bar)/(t+1)
-        y_bar += (y - y_bar)/100
-        n_bar += (n - n_bar)/100
-        
-        self.x_bar = x_bar
-        self.y_bar = y_bar
-        self.n_bar = n_bar
-
-        # synaptic updates
-        
-        step = self.eta0/(1+self.decay*t)
-
-        W += step*(np.outer(y-y_bar,x-x_bar) - W)
-        P += step*(np.outer(y-y_bar,n-n_bar) - P)
-        
-        # check to see if P is close to degenerate
-        # if so, we add .1*identity to ensure stability
-
-        if np.linalg.det(P@P.T)<1e-4:
-#             print(f'Iteration {t}: P@P.T close to degenerate')
-            P[:,:s_dim] += .5*np.eye(s_dim)
-            W = -W
-
-        self.P = P
-        self.W = W
-        
-        self.t += 1
-        
-        return y
-    
-    def flip_weights(self,j):
-        
-        assert 0<=j<self.s_dim
-        
-        t, W = self.t, self.W
-        
-        W[j,:] = -W[j,:]
-               
-        self.W = W
-            
 class two_layer_nsm:
     """
     Parameters:
@@ -317,6 +313,11 @@ class two_layer_nsm:
             if decay is None:
                 decay = 1e-7
         elif dataset=='10-dim_synthetic':
+            if eta0 is None:
+                eta0 = 0.1
+            if decay is None:
+                decay = 0.000001
+        elif dataset=='images':
             if eta0 is None:
                 eta0 = 0.1
             if decay is None:
@@ -439,6 +440,11 @@ class nonnegative_pca:
         elif dataset=='10-dim_synthetic':
             if eta0 is None:
                 eta0 = 0.01
+            if decay is None:
+                decay = 0.00001
+        elif dataset=='images':
+            if eta0 is None:
+                eta0 = 0.0001
             if decay is None:
                 decay = 0.00001
         else:

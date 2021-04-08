@@ -109,9 +109,9 @@ def permutation_error(S, Y):
     assert S.shape==Y.shape, "The shape of the sources S must equal the shape of the recovered sources Y"
 
     s_dim = S.shape[0]
-    iters = S.shape[1]
+    samples = S.shape[1]
     
-    err = np.zeros(iters)
+    err = np.zeros(samples)
     
     # Determine the optimal permutation at the final time point.
     # We solve the linear assignment problem using the linear_sum_assignment package
@@ -128,11 +128,15 @@ def permutation_error(S, Y):
     
     row_ind, col_ind = linear_sum_assignment(C)
         
-    for t in range(1,iters):
+    for t in range(samples):
 
         diff_t = (S[row_ind[:],t] - Y[col_ind[:],t])**2
         error_t = diff_t.sum()/s_dim
-        err[t] = err[t-1] + (error_t - err[t-1])/t
+        
+        if t==0:
+            err[t] = error_t
+        elif t>0:
+            err[t] = err[t-1] + (error_t - err[t-1])/t
     
     return err
 
