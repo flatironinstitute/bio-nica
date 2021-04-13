@@ -94,11 +94,11 @@ def image_data(s_dim, x_dim):
     np.save(f'datasets/image/sources.npy', S)
     np.save(f'datasets/image/mixtures.npy', X)
 
-def permutation_error(S, Y):
+def permutation_error(S_perm, Y):
     """
     Parameters:
     ====================
-    S   -- The data matrix of sources
+    S_perm   -- The data matrix of permuted sources
     Y   -- The data matrix of recovered sources
     
     Output:
@@ -106,12 +106,12 @@ def permutation_error(S, Y):
     err -- the (relative) Frobenius norm error
     """
     
-    assert S.shape==Y.shape, "The shape of the sources S must equal the shape of the recovered sources Y"
+    assert S_perm.shape==Y.shape, "The shape of the permuted sources S_perm must equal the shape of the recovered sources Y"
 
-    s_dim = S.shape[0]
-    samples = S.shape[1]
+    s_dim = S_perm.shape[0]
+    iters = S_perm.shape[1]
     
-    err = np.zeros(samples)
+    err = np.zeros(iters)
     
     # Determine the optimal permutation at the final time point.
     # We solve the linear assignment problem using the linear_sum_assignment package
@@ -122,15 +122,15 @@ def permutation_error(S, Y):
     
     for i in range(s_dim):
         for j in range(s_dim):
-            C[i,j] = ((S[i] - Y[j])**2).sum()
+            C[i,j] = ((S_perm[i] - Y[j])**2).sum()
     
     # Find the optimal assignment for the cost matrix C
     
     row_ind, col_ind = linear_sum_assignment(C)
         
-    for t in range(samples):
+    for t in range(iters):
 
-        diff_t = (S[row_ind[:],t] - Y[col_ind[:],t])**2
+        diff_t = (S_perm[row_ind[:],t] - Y[col_ind[:],t])**2
         error_t = diff_t.sum()/s_dim
         
         if t==0:

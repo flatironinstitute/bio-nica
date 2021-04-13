@@ -59,11 +59,11 @@ class bio_nica_indirect:
                 eta0 = 1e-2
             if decay is None:
                 decay = 1e-3
-        elif dataset=='image':
+        elif dataset=='images':
             if eta0 is None:
                 eta0 = 1e-2
             if decay is None:
-                decay = 1e-3
+                decay = 1e-4
 
         self.t = 0
         self.eta0 = eta0
@@ -110,10 +110,12 @@ class bio_nica_indirect:
         P += step*(np.outer(y-y_bar,n-n_bar) - P)
         
         # check to see if P is close to degenerate
-        # if so, we add .5*identity and flip the feedforward weights to ensure stability
+        # if so, we add .5*identity and flip the feedforward weights
 
         if np.linalg.det(P@P.T)<1e-4:
-            P[:,:s_dim] += .3*np.eye(s_dim)
+#             print('PP.T close to degenerate')
+            P[:,:s_dim] += .5*np.eye(s_dim)
+            W = -W
 
         self.P = P
         self.W = W
@@ -169,23 +171,23 @@ class bio_nica_direct:
             
         if dataset=='3-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-1
             if decay is None:
-                decay = 0.01
+                decay = 1e-2
             if tau is None:
                 tau = 0.8
         elif dataset=='10-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.001
+                eta0 = 1e-3
             if decay is None:
-                decay = 0.0001
+                decay = 1e-4
             if tau is None:
                 tau = .03
-        elif dataset=='image':
+        elif dataset=='images':
             if eta0 is None:
-                eta0 = 0.001
+                eta0 = 1e-3
             if decay is None:
-                decay = 0.000001
+                decay = 1e-6
             if tau is None:
                 tau = .1
         else:
@@ -240,6 +242,7 @@ class bio_nica_direct:
         # if so, we add .1*identity to ensure stability
 
         if np.linalg.det(M)<10**-4:
+#             print('M close to degenerate')
             M += .1*np.eye(s_dim)
 
         self.M = M
@@ -314,14 +317,14 @@ class two_layer_nsm:
                 decay = 1e-7
         elif dataset=='10-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-1
             if decay is None:
-                decay = 0.000001
+                decay = 1e-6
         elif dataset=='images':
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-1
             if decay is None:
-                decay = 0.000001
+                decay = 1e-6
         else:
             if eta0 is None:
                 eta0 = 0.1
@@ -434,19 +437,19 @@ class nonnegative_pca:
             
         if dataset=='3-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-1
             if decay is None:
-                decay = 0.00001
+                decay = 1e-5
         elif dataset=='10-dim_synthetic':
             if eta0 is None:
-                eta0 = 0.01
+                eta0 = 1e-2
             if decay is None:
-                decay = 0.00001
+                decay = 1e-5
         elif dataset=='images':
             if eta0 is None:
-                eta0 = 0.0001
+                eta0 = 1e-3
             if decay is None:
-                decay = 0.00001
+                decay = 1e-5
         else:
             if eta0 is None:
                 eta0 = 0.1
