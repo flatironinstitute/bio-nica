@@ -81,14 +81,14 @@ class bio_nica_indirect:
         
         assert x.shape == (self.x_dim,)
 
-        t, s_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
+        t, s_dim, x_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
         
         # project inputs
         
         c = W@x
         
         # neural dynamics
-
+        
         y = solve_qp(P@P.T, c, np.eye(s_dim), np.zeros(s_dim))[0]
         n = P.T@y
 
@@ -113,9 +113,15 @@ class bio_nica_indirect:
         # if so, we add .5*identity and flip the feedforward weights
 
         if np.linalg.det(P@P.T)<1e-4:
-#             print('PP.T close to degenerate')
+            print('PP.T close to degenerate')
             P[:,:s_dim] += .5*np.eye(s_dim)
             W = -W
+
+        for i in range(s_dim):
+            if np.linalg.norm(W[i,:])<1e-4:
+                print('New weights')
+                W = np.random.randn(s_dim,x_dim)/np.sqrt(x_dim)
+                P = np.eye(s_dim)
 
         self.P = P
         self.W = W
@@ -452,9 +458,9 @@ class nonnegative_pca:
                 decay = 1e-5
         else:
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-2
             if decay is None:
-                decay = 0.001
+                decay = 1e-3
 
         self.t = 0
         self.eta0 = eta0
