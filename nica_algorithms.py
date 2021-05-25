@@ -9,6 +9,7 @@
 # Imports
 import numpy as np
 from quadprog import solve_qp
+from scipy.stats import ortho_group
 
 ##############################
 
@@ -36,16 +37,13 @@ class bio_nica_indirect:
             assert P0.shape == (s_dim, n_dim), "The shape of the initial guess P0 must be (s_dim,n_dim)=(%d,%d)" % (s_dim, n_dim)
             P = P0
         else:
-            P = np.zeros((s_dim,n_dim))
-            P[:,:s_dim] = np.eye(s_dim)
+            P = np.eye(s_dim,n_dim)
 
         if W0 is not None:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             W = W0
         else:
-            W = np.random.randn(s_dim,x_dim)
-            for i in range(s_dim):
-                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
+            W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
             
         # optimal hyperparameters for test datasets
             
@@ -81,7 +79,7 @@ class bio_nica_indirect:
         
         assert x.shape == (self.x_dim,)
 
-        t, s_dim, x_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
+        t, s_dim, x_dim, n_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_dim, self.n_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
         
         # project inputs
         
@@ -95,8 +93,8 @@ class bio_nica_indirect:
         # update running means
 
         x_bar += (x - x_bar)/(t+1)
-        y_bar += (y - y_bar)/100
-        n_bar += (n - n_bar)/100
+        y_bar += (y - y_bar)/min(t+1,100)
+        n_bar += (n - n_bar)/min(t+1,100)
         
         self.x_bar = x_bar
         self.y_bar = y_bar
@@ -109,20 +107,40 @@ class bio_nica_indirect:
         W += step*(np.outer(y-y_bar,x-x_bar) - W)
         P += step*(np.outer(y-y_bar,n-n_bar) - P)
         
-        # check to see if P is close to degenerate
-        # if so, we add .5*identity and flip the feedforward weights
+        # check W singular values
+        
+        if t%100==0:
+            
+            for i in range(s_dim):
+                if np.linalg.norm(W[i,:])<.1:
+                    print(f'W row {i} small: {W[i,:]}')
+                    W[i,:] = np.random.randn(x_dim)
 
-        if np.linalg.det(P@P.T)<1e-4:
-            print('PP.T close to degenerate')
-            P[:,:s_dim] += .5*np.eye(s_dim)
-            W = -W
+#             u, s, vh = np.linalg.svd(W, full_matrices=False)
+            
+#             for i in range(s_dim):
+#                 if s[i]<1e-2 or s[i]>1e2:
+#                     print(f'W_s dangerous size: {s}')
+#                     print('W', W)
+#                     s[i] = 1
+            
+#             W = u@np.diag(s)@vh
 
-        for i in range(s_dim):
-            if np.linalg.norm(W[i,:])<1e-4:
-                print('New weights')
-                W = np.random.randn(s_dim,x_dim)/np.sqrt(x_dim)
-                P = np.eye(s_dim)
-
+            u, s, vh = np.linalg.svd(P, full_matrices=False)
+            
+            for i in range(s_dim):
+                if s[i]<1e-2 or s[i]>1e2:
+#                     print(f'P singular values small: {s}')
+#                     print('P', P)
+                    s[i] = 1
+            
+            P = u@np.diag(s)@vh
+                
+#             if np.linalg.det(P@P.T)<1e-4:
+#                 print('PP.T small', np.linalg.det(P@P.T))
+#                 W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
+#                 P = np.eye(s_dim,n_dim)
+            
         self.P = P
         self.W = W
         
@@ -169,9 +187,7 @@ class bio_nica_direct:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             W = W0
         else:
-            W = np.random.randn(s_dim,x_dim)
-            for i in range(s_dim):
-                W[i,:] = W[i,:]/np.linalg.norm(W[i,:])
+            W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
             
         # optimal hyperparameters for test datasets
             
@@ -195,7 +211,7 @@ class bio_nica_direct:
             if decay is None:
                 decay = 1e-6
             if tau is None:
-                tau = .1
+                tau = .5
         else:
             if eta0 is None:
                 eta0 = 0.1
@@ -245,11 +261,27 @@ class bio_nica_direct:
         M += (step/tau)*(np.outer(y,y) - M)
         
         # check to see if M is close to degenerate
-        # if so, we add .1*identity to ensure stability
-
-        if np.linalg.det(M)<10**-4:
-#             print('M close to degenerate')
-            M += .1*np.eye(s_dim)
+        
+        if t%100==0:
+            u, s, vh = np.linalg.svd(W, full_matrices=False)
+            
+            for i in range(s_dim):
+                if s[i]<1e-5 or s[i]>1e5:
+#                     print(f'W_s dangerous size: {s}')
+#                     print('W', W)
+                    s[i] = 1
+            
+            W = u@np.diag(s)@vh
+            
+            lam, v = np.linalg.eig(M)
+            
+            for i in range(s_dim):
+                if lam[i]<1e-4:
+#                     print('lam dangerously small', lam)
+#                     print('M', M)
+                    lam[i] = 1
+                
+            M = v@np.diag(lam)@v.T
 
         self.M = M
         self.W = W
