@@ -43,6 +43,7 @@ class bio_nica_indirect:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             W = W0
         else:
+#             W = np.random.randn(s_dim,x_dim)/np.sqrt(x_dim)
             W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
             
         # optimal hyperparameters for test datasets
@@ -61,7 +62,7 @@ class bio_nica_indirect:
             if eta0 is None:
                 eta0 = 1e-2
             if decay is None:
-                decay = 1e-4
+                decay = 1e-3
 
         self.t = 0
         self.eta0 = eta0
@@ -109,35 +110,35 @@ class bio_nica_indirect:
         
         # check W singular values
         
-        if t%100==0:
+        if t%10==0:
             
             for i in range(s_dim):
                 if np.linalg.norm(W[i,:])<.1:
-                    print(f'W row {i} small: {W[i,:]}')
-                    W[i,:] = np.random.randn(x_dim)
+#                     print(f'iteration {t}: W row {i} small: {W[i,:]}')
+                    W[i,:] = np.random.randn(x_dim)/np.sqrt(x_dim)
 
-#             u, s, vh = np.linalg.svd(W, full_matrices=False)
+            u, s, vh = np.linalg.svd(W, full_matrices=False)
             
-#             for i in range(s_dim):
-#                 if s[i]<1e-2 or s[i]>1e2:
-#                     print(f'W_s dangerous size: {s}')
+            for i in range(s_dim):
+                if s[i]<1e-2:
+#                     print(f'iteration {t}: W singular values small: {s}')
 #                     print('W', W)
-#                     s[i] = 1
+                    s[i] = 1
             
-#             W = u@np.diag(s)@vh
+            W = u@np.diag(s)@vh
 
             u, s, vh = np.linalg.svd(P, full_matrices=False)
             
             for i in range(s_dim):
                 if s[i]<1e-2 or s[i]>1e2:
-#                     print(f'P singular values small: {s}')
+#                     print(f'iteration {t}: P singular values small: {s}')
 #                     print('P', P)
                     s[i] = 1
             
             P = u@np.diag(s)@vh
                 
 #             if np.linalg.det(P@P.T)<1e-4:
-#                 print('PP.T small', np.linalg.det(P@P.T))
+#                 print(f'iteration {t}: PP.T small', np.linalg.det(P@P.T))
 #                 W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
 #                 P = np.eye(s_dim,n_dim)
             
@@ -485,7 +486,7 @@ class nonnegative_pca:
                 decay = 1e-5
         elif dataset=='images':
             if eta0 is None:
-                eta0 = 1e-3
+                eta0 = 1e-2
             if decay is None:
                 decay = 1e-5
         else:

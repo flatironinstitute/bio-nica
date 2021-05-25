@@ -1,6 +1,6 @@
 # Title: util.py
 # Description: Various utilities useful for online NICA tests
-# Author: David Lipshutz (dlipshutz@flatironinstitute.org)
+# Author: Anonymous
 
 ##############################
 # Imports
