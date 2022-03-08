@@ -1,6 +1,6 @@
 # Title: util.py
 # Description: Various utilities useful for online NICA tests
-# Author: Anonymous
+# Author: David Lipshutz (dlipshutz@flatironinstitute.org)
 
 ##############################
 # Imports
@@ -136,7 +136,8 @@ def permutation_error(S_perm, Y):
         if t==0:
             err[t] = error_t
         elif t>0:
-            err[t] = err[t-1] + (error_t - err[t-1])/t
+            # err[t] = err[t-1] + (error_t - err[t-1])/t
+            err[t] = err[t-1] + (error_t - err[t-1])/1000
     
     return err
 

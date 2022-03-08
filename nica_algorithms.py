@@ -1,7 +1,7 @@
 # Title: nica_algorithms.py
-# Description: Implementation of online algorithms for Nonnegative Independent Component Analysis, including Bio-NICA, 2-layer NSM and Nonnegative PCA.
+# Description: Implementation of online algorithms for Nonnegative Independent Component Analysis, including Bio-NICA algs, 2-layer NSM and Nonnegative PCA.
 # Author: David Lipshutz (dlipshutz@flatironinstitute.org)
-# References: D. Lipshutz, C. Pehlevan and D.B. Chklovskii "Bio-NICA: A biologically inspired single-layer network for Nonnegative Independent Component Analysis" (2020)
+# References: D. Lipshutz, C. Pehlevan and D.B. Chklovskii "Single-layer networks with local learning rules for Nonnegative Independent Component Analysis" (2022)
 #             C. Pehlevan, S. Mohan and D.B. Chklovskii "Blind nonnegative source separation using biological neural networks" (2017)
 #             M.D. Plumbley and E. Oja "A ‘Nonnegative PCA’ algorithm for independent component analysis" (2004)
 
@@ -43,7 +43,6 @@ class bio_nica_indirect:
             assert W0.shape == (s_dim, x_dim), "The shape of the initial guess W0 must be (s_dim,x_dim)=(%d,%d)" % (s_dim, x_dim)
             W = W0
         else:
-#             W = np.random.randn(s_dim,x_dim)/np.sqrt(x_dim)
             W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
             
         # optimal hyperparameters for test datasets
@@ -60,9 +59,9 @@ class bio_nica_indirect:
                 decay = 1e-3
         elif dataset=='images':
             if eta0 is None:
-                eta0 = 1e-2
+                eta0 = 1e-3
             if decay is None:
-                decay = 1e-3
+                decay = 1e-6
 
         self.t = 0
         self.eta0 = eta0
@@ -80,7 +79,7 @@ class bio_nica_indirect:
         
         assert x.shape == (self.x_dim,)
 
-        t, s_dim, x_dim, n_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_dim, self.n_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
+        t, s_dim, x_dim, x_bar, y_bar, n_bar, W, P  = self.t, self.s_dim, self.x_dim, self.x_bar, self.y_bar, self.n_bar, self.W, self.P
         
         # project inputs
         
@@ -88,7 +87,7 @@ class bio_nica_indirect:
         
         # neural dynamics
         
-        y = solve_qp(P@P.T, c, np.eye(s_dim), np.zeros(s_dim))[0]
+        y = solve_qp(P@P.T+1e-10, c, np.eye(s_dim), np.zeros(s_dim))[0]
         n = P.T@y
 
         # update running means
@@ -110,37 +109,12 @@ class bio_nica_indirect:
         
         # check W singular values
         
-        if t%10==0:
+        if t%100==0:
             
             for i in range(s_dim):
                 if np.linalg.norm(W[i,:])<.1:
-#                     print(f'iteration {t}: W row {i} small: {W[i,:]}')
+                    # print(f'iteration {t}: W row {i} small: {W[i,:]}')
                     W[i,:] = np.random.randn(x_dim)/np.sqrt(x_dim)
-
-            u, s, vh = np.linalg.svd(W, full_matrices=False)
-            
-            for i in range(s_dim):
-                if s[i]<1e-2:
-#                     print(f'iteration {t}: W singular values small: {s}')
-#                     print('W', W)
-                    s[i] = 1
-            
-            W = u@np.diag(s)@vh
-
-            u, s, vh = np.linalg.svd(P, full_matrices=False)
-            
-            for i in range(s_dim):
-                if s[i]<1e-2 or s[i]>1e2:
-#                     print(f'iteration {t}: P singular values small: {s}')
-#                     print('P', P)
-                    s[i] = 1
-            
-            P = u@np.diag(s)@vh
-                
-#             if np.linalg.det(P@P.T)<1e-4:
-#                 print(f'iteration {t}: PP.T small', np.linalg.det(P@P.T))
-#                 W = ortho_group.rvs(s_dim)@np.eye(s_dim,x_dim)@ortho_group.rvs(x_dim)
-#                 P = np.eye(s_dim,n_dim)
             
         self.P = P
         self.W = W
@@ -153,7 +127,7 @@ class bio_nica_indirect:
         
         assert 0<=j<self.s_dim
         
-        t, W = self.t, self.W
+        W = self.W
         
         W[j,:] = -W[j,:]
                
@@ -205,19 +179,19 @@ class bio_nica_direct:
             if decay is None:
                 decay = 1e-4
             if tau is None:
-                tau = .03
+                tau = 0.03
         elif dataset=='images':
             if eta0 is None:
                 eta0 = 1e-3
             if decay is None:
                 decay = 1e-6
             if tau is None:
-                tau = .5
+                tau = 0.5
         else:
             if eta0 is None:
-                eta0 = 0.1
+                eta0 = 1e-1
             if decay is None:
-                decay = 0.001
+                decay = 1e-2
             if tau is None:
                 tau = 0.5
 
@@ -264,22 +238,11 @@ class bio_nica_direct:
         # check to see if M is close to degenerate
         
         if t%100==0:
-            u, s, vh = np.linalg.svd(W, full_matrices=False)
-            
-            for i in range(s_dim):
-                if s[i]<1e-5 or s[i]>1e5:
-#                     print(f'W_s dangerous size: {s}')
-#                     print('W', W)
-                    s[i] = 1
-            
-            W = u@np.diag(s)@vh
-            
             lam, v = np.linalg.eig(M)
             
             for i in range(s_dim):
                 if lam[i]<1e-4:
-#                     print('lam dangerously small', lam)
-#                     print('M', M)
+                    print(f'iteration {t}: close to degenerate')
                     lam[i] = 1
                 
             M = v@np.diag(lam)@v.T
@@ -295,7 +258,7 @@ class bio_nica_direct:
         
         assert 0<=j<self.s_dim
         
-        t, W = self.t, self.W
+        W = self.W
         
         W[j,:] = -W[j,:]
                
@@ -440,7 +403,7 @@ class two_layer_nsm:
         
         assert 0<=j<self.s_dim
         
-        t, Wyh = self.t, self.Wyh
+        Wyh = self.Wyh
         
         Wyh[j,:] = -Wyh[j,:]
                
@@ -506,7 +469,7 @@ class nonnegative_pca:
         
         assert x.shape == (self.x_dim,)
         
-        t, s_dim, W = self.t, self.s_dim, self.W
+        t, W = self.t, self.W
 
         # project inputs
         
@@ -526,7 +489,7 @@ class nonnegative_pca:
     
     def flip_weights(self,j):
         
-        t, W = self.t, self.W
+        W = self.W
                 
         W[j,:] = -W[j,:]
                        
